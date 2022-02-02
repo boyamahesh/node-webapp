@@ -1,14 +1,13 @@
 pipeline {
-    agent {label 'slave1'}
+    agent any
     environment{
         DOCKER_TAG = getDockerTag()
     }
     stages{
-        stage('git clone')
+        stage('Git checkout')
         {
         steps{
-            sh'rm -rf node-app'
-            sh' git clone https://github.com/anilkumarpuli/node-app.git'
+            
         }
         }
         stage('build'){
