@@ -7,76 +7,32 @@ pipeline {
         stage('Git checkout')
         {
         steps{
-            
+            git credentialsId: 'nodeapp', url: 'https://github.com/boyamahesh/node-webapp.git'
         }
         }
-        stage('build'){
+        stage(' Maven Build'){
             steps{
-                sh'mvn clean install'
+                sh'mvn clean package'
+                sh 'mv target/*.war target/myweb.war'
             }
         }
-          stage('Sonarqube') {
-     environment {
-       def scannerHome = tool 'sonar';
-     }
-     steps {
-     withSonarQubeEnv('sonar') {
-        sh "${scannerHome}/bin/sonar-scanner"
-      }
-     }
-    }
-        //stage('deploy throuh ansible')
-          //    {
-         //steps{
-           //      sshPublisher(publishers: [sshPublisherDesc(configName: 'ansible_server', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'ansible-playbook copywar.yml', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '/home/ansible', remoteDirectorySDF: false, removePrefix: '/home/ansible/workspace/workspace/pipeline/target', sourceFiles: '/home/ansible/workspace/workspace/pipeline/target/vprofile-v1.war')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]) 
-        // }
-         // }
-            //stage('deploy to tomcat')
-         //{
-        //steps
-          //  {
-      //deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://172.31.44.163:8080')], contextPath: 'anil', war: '**/*.war'        
-       //}
-        //}
-        stage('Build Docker Image'){
-            steps{
-                sh 'docker images -q -f dangling=true | xargs --no-run-if-empty docker rmi'
-                sh "docker build . -t anilkumblepuli/java2:${DOCKER_TAG}"
-            }
-        }
-        stage('DockerHub Push'){
-            steps{
-                 withCredentials([string(credentialsId: 'docker-push', variable: 'dockerhubpwD1')]) 
-                
-                {                                   
-                    sh "docker login -u anilkumblepuli -p ${dockerhubpwD1}"
-                    sh "docker push anilkumblepuli/java2:${DOCKER_TAG}"
-                }
-            }
-        }
-          stage('Deploy to k8s'){
-             steps{
-                sh "chmod +x changeTag.sh"
-                sh "./changeTag.sh ${DOCKER_TAG}"
-                sshagent(['kopps']) 
-                  {
-                    sh "scp -o StrictHostKeyChecking=no services.yml node-app-pod.yml ubuntu@172.31.1.218:/home/ubuntu/"
-                
-                    script{
-                        try{
-                            
-                            sh "ssh ubuntu@172.31.1.218 kubectl apply -f ."
-                        }catch(error){
-                            sh "ssh ubuntu@172.31.1.218 kubectl create -f ."
-                            
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-def getDockerTag(){
-    def tag  = sh script: 'git rev-parse HEAD', returnStdout: true
-    return tag
+          
+        stage('deploy-dev')
+           {
+         steps{
+             sshagent(['tomcat-new'])
+             {
+                 steps
+           {
+      sh """
+      scp -o StrictHostKeyChecking-no target/myweb.war  ec2-user@172.31.58.73:home/ec2-user/apache-tomcat-9.0.58/webapps/
+      
+      ssh ec2-user@172.31.58.73:home/ec2-user/apache-tomcat-9.0.58/bin/shutdown.sh
+      
+      ssh ec2-user@172.31.58.73:home/ec2-user/apache-tomcat-9.0.58/bin/startup.sh
+      
+      """
+               
+           }
+             }
 }
